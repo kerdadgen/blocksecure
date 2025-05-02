@@ -1,0 +1,11 @@
+Flask
+pandas
+numpy
+scipy
+scikit-learn
+pyod
+hdbscan
+statsmodels
+prophet
+sktime
+pymongo
