@@ -1,50 +1,39 @@
-from pymongo import MongoClient
+import pandas as pd
+from sklearn.preprocessing import PowerTransformer
 
-def analyze_transactions_simple():
-    """Analyzes transactions based on a simple rule (amount > threshold) and updates MongoDB."""
-    try:
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client["blocksecure_db"]
-        transactions_collection = db["eth_transactions"]
-        
-        suspicious_threshold = 5000.0
-        analysis_count = 0
-        suspicious_count = 0
+class DataPreprocessor:
+    def __init__(self):
+        self.norm = PowerTransformer()
 
-        print(f"Starting simple analysis with threshold: {suspicious_threshold}")
+    def clean_data(self, df):
+        drop_columns = [
+            'total transactions (including tnx to create contract', 'total ether sent contracts',
+            'max val sent to contract', ' ERC20 avg val rec', ' ERC20 max val rec',
+            ' ERC20 min val rec', ' ERC20 uniq rec contract addr', 'max val sent',
+            ' ERC20 avg val sent', ' ERC20 min val sent', ' ERC20 max val sent',
+            ' Total ERC20 tnxs', 'avg value sent to contract', 'Unique Sent To Addresses',
+            'Unique Received From Addresses', 'total ether received', ' ERC20 uniq sent token name',
+            'min value received', 'min val sent', ' ERC20 uniq rec addr'
+        ]
+        drops1 = ['min value sent to contract', ' ERC20 uniq sent addr.1']
+        drops2 = [
+            ' ERC20 avg time between sent tnx', ' ERC20 avg time between rec tnx',
+            ' ERC20 avg time between rec 2 tnx', ' ERC20 avg time between contract tnx',
+            ' ERC20 min val sent contract', ' ERC20 max val sent contract',
+            ' ERC20 avg val sent contract', ' ERC20 most sent token type',
+            ' ERC20_most_rec_token_type'
+        ]
 
-        # Reset previous analysis results (optional, depends on desired behavior)
-        # transactions_collection.update_many({}, {"$set": {"is_suspicious": False, "analysis_notes": ""}})
-        # print("Reset previous analysis results.")
+        df.drop(columns=[col for col in drop_columns if col in df.columns], inplace=True, errors='ignore')
+        df.drop(drops1 + drops2, axis=1, inplace=True, errors='ignore')
 
-        for tx in transactions_collection.find():
-            analysis_count += 1
-            is_suspicious = False
-            analysis_notes = ""
+        for col in [' ERC20 uniq rec token name', ' ERC20 uniq sent addr',
+                    ' ERC20 total ether sent', ' ERC20 total Ether received',
+                    ' ERC20 total Ether sent contract']:
+            if col in df.columns:
+                df[col] = df[col].fillna(0)
+        return df
 
-            # Simple rule: amount > threshold
-            if tx.get("amount", 0) > suspicious_threshold:
-                is_suspicious = True
-                analysis_notes = f"Suspicious: Amount ({tx.get('amount')}) exceeds threshold ({suspicious_threshold})."
-                suspicious_count += 1
-            
-            # Update the document in MongoDB only if the status changed or notes were added
-            if tx.get("is_suspicious") != is_suspicious or tx.get("analysis_notes") != analysis_notes:
-                 transactions_collection.update_one(
-                    {"_id": tx["_id"]},
-                    {"$set": {"is_suspicious": is_suspicious, "analysis_notes": analysis_notes}}
-                )
-
-        print(f"Analysis complete. Analyzed {analysis_count} transactions. Found {suspicious_count} suspicious transactions.")
-        client.close()
-        return {"analyzed_count": analysis_count, "suspicious_count": suspicious_count}
-
-    except Exception as e:
-        print(f"An error occurred during analysis: {e}")
-        return {"error": str(e)}
-
-# Example usage (can be run independently for testing)
-if __name__ == "__main__":
-    result = analyze_transactions_simple()
-    print(result)
-
+    def transform(self, df):
+        transformed = self.norm.fit_transform(df)
+        return pd.DataFrame(transformed, columns=df.columns)
