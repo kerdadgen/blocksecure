@@ -6,21 +6,21 @@ import os
 from werkzeug.utils import secure_filename
 from analysis import DataPreprocessor
 
-# --- Initialisation ---
+# initialisation
 app = Flask(__name__, template_folder='../templates')
 app.config["UPLOAD_FOLDER"] = "uploads"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-# --- Connexion MongoDB ---
+# connexion MongoDB
 client = MongoClient("mongodb://localhost:27017/")
 db = client["blocksecure_db"]
 prod_collection = db["prod"]
 
-# --- Charger modèle ---
+# charger modèle
 with open('models/XGB_FRAUD.pickle', 'rb') as f:
     model = pickle.load(f)
 
-# --- Initialiser préprocesseur ---
+# initialiser pretraitement
 preprocessor = DataPreprocessor()
 
 @app.route('/')
@@ -42,7 +42,6 @@ def upload_predict():
     try:
         # Lire CSV
         df = pd.read_csv(filepath)
-        x = df['Index']
 
         # Nettoyer MongoDB
         db.prod.delete_many({})
